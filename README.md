@@ -40,4 +40,25 @@ or
 - sensor.living_room_purifier_pm2_5
 
 
-This app does not do anything it is a dependency for other apps.
+This app does not do anything it is a dependency for other apps. It must be priority 1 in 
+the configuration file. 
+
+```yaml
+automations:
+  module: automations
+  class: Automations
+  use_dictionary_unpacking: True
+  plugin:
+    - HASS
+  hass_db_url: "mysql+mysqlconnector://<my_username>:<my_password>@<host_ip>:3306/ha_db?charset=utf8mb4&collation=utf8mb4_unicode_ci"
+#  home_db_url: "mysql+mysqlconnector://<my_username>:<my_password>@<host_ip>:3306/home_db?charset=utf8mb4&collation=utf8mb4_unicode_ci"
+  areas:
+    - kitchen
+    - living_room
+    - bedroom
+    - office
+    - bathroom_guest
+    - bathroom_master
+    - hallway
+  priority: 1 # Must be first in the list before any of my other apps
+```
