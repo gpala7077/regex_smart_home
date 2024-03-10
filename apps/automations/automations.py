@@ -23,14 +23,25 @@ class Automations(hass.Hass):
         self.recordings = {}
         self.debounce_timers = {}
         self.debounce_period = timedelta(seconds=60)
-        # self.listen_state(
-        #     self.trigger_event_recorder,
-        #     'binary_sensor',
+        # self.begin_snapshot(
+        #     entity_id='binary_sensor.office_occupancy_desk_gerardo',
         #     old='off',
         #     new='on',
-        #     recording_key='hacs_startup',
-        #     regex_filter='.*occupancy.*',
+        #     recording_key='gerardo_coding',
+        #     regex_filter=None,
+        #     duration=10,
         # )
+
+    def begin_snapshot(self, entity_id, old, new, recording_key, regex_filter, duration):
+        self.listen_state(
+            self.trigger_event_recorder,
+            entity_id,
+            old=old,
+            new=new,
+            recording_key=recording_key,
+            regex_filter=regex_filter,
+            duration=duration,
+        )
 
     def should_debounce(self, debounce_key):
         """Check if the call should be debounced."""
@@ -1005,6 +1016,9 @@ class Automations(hass.Hass):
         default_wait = kwargs.pop('default_wait')
         task_id = kwargs.pop('task_id')
 
+        if self.should_debounce(f"{master_name}"):
+            return
+
         self.log(
             msg=f"Starting {master_name.replace('_', ' ').title()} Cycle",
             level='INFO',
@@ -1091,7 +1105,7 @@ class Automations(hass.Hass):
         self.run_in(
             self.stop_recording,
             delay=duration,
-            tart_time=start_time,
+            start_time=start_time,
             recording_key=recording_key,
         )
 
@@ -1129,7 +1143,15 @@ class Automations(hass.Hass):
         # Optionally, return the recorded events if this method is used in a context
         # where the return value can be captured and utilized
         self.recordings[recording_key] = self.recorded_events
-        self.log(self.recorded_events)
+
+        data = pd.DataFrame.from_records(self.recorded_events)
+        # Convert the time column to a datetime object and adjust for the local timezone
+        data['time'] = pd.to_datetime(data['time'])
+        data['time'] = data['time'].dt.tz_localize('UTC').dt.tz_convert('America/Chicago')
+
+        data['recording_key'] = recording_key
+        data.to_sql('activity_tracking', con=self.home_engine, if_exists='append', index=False)
+
         return self.recorded_events
 
 
