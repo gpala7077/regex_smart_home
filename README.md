@@ -14,7 +14,7 @@ Enter this URL: https://github.com/gpala7077/regex_smart_home.git
 
 It will look like this:
   <div style="display: flex; justify-content: space-around;">
-  <div><img src="/apps/static/custom_repository.png" alt="Custom Repo" style="width: 50%; max-width: 500px;"/></div>
+  <div><img src="/static/custom_repository.png" alt="Custom Repo" style="width: 50%; max-width: 500px;"/></div>
   </div>
 
 
@@ -193,7 +193,7 @@ optimal range.
 #### Visualizations of the Scoring Algorithm
 
   <div style="display: flex; justify-content: space-around;">
-  <div><img src="apps/static/greater.png" alt="Greater" style="width: 100%; max-width: 500px;"/></div>
-  <div><img src="apps/static/lower.png" alt="Lower" style="width: 100%; max-width: 500px;"/></div>
-  <div><img src="apps/static/range.png" alt="Range" style="width: 100%; max-width: 500px;"/></div>
+  <div><img src="static/greater.png" alt="Greater" style="width: 100%; max-width: 500px;"/></div>
+  <div><img src="static/lower.png" alt="Lower" style="width: 100%; max-width: 500px;"/></div>
+  <div><img src="static/range.png" alt="Range" style="width: 100%; max-width: 500px;"/></div>
   </div>
