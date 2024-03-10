@@ -921,6 +921,26 @@ class Automations(hass.Hass):
 
         return list(rooms_with_occupancy.keys())
 
+    def find_associated_rooms(self, room, room_groups):
+        """
+        Find all rooms associated with the given room.
+
+        Parameters:
+        - room (str): The room to find associations for.
+        - room_groups (list of dict): A list of room groupings.
+
+        Returns:
+        - list: A list of all rooms associated with the given room, or
+                an empty list if the room is not found in any group.
+        """
+        try:
+            for group in room_groups:
+                if room in group['rooms']:
+                    return group['rooms']
+            return [room]
+        except KeyError:
+            return [room]
+
     def calculate_individual_score(self, current_value, optimal_value, condition, **kwargs):
 
         if condition == 'greater':
@@ -1016,15 +1036,14 @@ class Automations(hass.Hass):
         default_wait = kwargs.pop('default_wait')
         task_id = kwargs.pop('task_id')
 
-        if self.should_debounce(f"{master_name}"):
+        if self.should_debounce(f"{master_name}_{task_id}"):
             return
 
-        self.log(
-            msg=f"Starting {master_name.replace('_', ' ').title()} Cycle",
-            level='INFO',
-        )
-
-        if all(boolean_checks.keys()):
+        if all(boolean_checks.values()):
+            self.log(
+                msg=f"Starting {master_name.replace('_', ' ').title()} Cycle with Task ID: {task_id}",
+                level='INFO',
+            )
 
             # # Turn on master is running boolean
             # response = self.command_matching_entities(
@@ -1251,5 +1270,3 @@ def extract_between(text, start, end):
     if match:
         return match.group(1)
     return None  # or some default value if not found
-
-
