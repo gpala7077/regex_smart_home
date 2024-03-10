@@ -193,7 +193,7 @@ optimal range.
 #### Visualizations of the Scoring Algorithm
 
   <div style="display: flex; justify-content: space-around;">
-  <div><img src="../static/greater.png" alt="Greater" style="width: 100%; max-width: 500px;"/></div>
-  <div><img src="../static/lower.png" alt="Lower" style="width: 100%; max-width: 500px;"/></div>
-  <div><img src="../static/range.png" alt="Range" style="width: 100%; max-width: 500px;"/></div>
+  <div><img src="apps/static/greater.png" alt="Greater" style="width: 100%; max-width: 500px;"/></div>
+  <div><img src="apps/static/lower.png" alt="Lower" style="width: 100%; max-width: 500px;"/></div>
+  <div><img src="apps/static/range.png" alt="Range" style="width: 100%; max-width: 500px;"/></div>
   </div>
