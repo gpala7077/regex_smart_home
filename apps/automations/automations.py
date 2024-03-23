@@ -9,20 +9,21 @@ import numpy as np
 import pandas as pd
 import pytz
 from sqlalchemy import create_engine
+from utility import Base
 
 
-class Automations(hass.Hass):
+class Automations(Base):
     """Automations class."""
 
     def initialize(self):
         """Initialize the HACS app."""
+        # Run parent class initialize method
+        super().initialize()
         self.log("Smart Home Automation - ReGex Entity Matching and Command Execution")
         self.connect_to_database()
         self.get_hass_data()
         self.create_home_automation_settings()
         self.recordings = {}
-        self.debounce_timers = {}
-        self.debounce_period = timedelta(seconds=60)
         # self.begin_snapshot(
         #     entity_id='binary_sensor.office_occupancy_desk_gerardo',
         #     old='off',
@@ -32,7 +33,7 @@ class Automations(hass.Hass):
         #     duration=10,
         # )
 
-    def begin_snapshot(self, entity_id, old, new, recording_key, regex_filter, duration):
+    def begin_snapshot(self, entity_id, old, new, recording_key, regex_filter, duration, oneshot, sql=False):
         self.listen_state(
             self.trigger_event_recorder,
             entity_id,
@@ -41,25 +42,9 @@ class Automations(hass.Hass):
             recording_key=recording_key,
             regex_filter=regex_filter,
             duration=duration,
+            oneshot=oneshot,
+            sql=sql,
         )
-
-    def should_debounce(self, debounce_key):
-        """Check if the call should be debounced."""
-        current_time = datetime.now()
-        last_run = self.debounce_timers.get(debounce_key)
-
-        if last_run is None:
-            # If it's the first run, do not debounce
-            self.debounce_timers[debounce_key] = current_time
-            return False
-
-        if current_time - last_run < self.debounce_period:
-            # If we're within the debounce period, skip this call
-            return True
-
-        # If we're outside the debounce period, proceed with the call
-        self.debounce_timers[debounce_key] = current_time
-        return False
 
     def connect_to_database(self):
         self.hass_engine = create_engine(self.args['hass_db_url'])
@@ -1045,14 +1030,6 @@ class Automations(hass.Hass):
                 level='INFO',
             )
 
-            # # Turn on master is running boolean
-            # response = self.command_matching_entities(
-            #     hacs_commands='turn_on',
-            #     domain='input_boolean',
-            #     pattern_overwrite=f"input_boolean.{app_name}_{task_id}_master_is_running",
-            #     device_state='off'
-            # )
-
             if 'hours' in kwargs:
                 wait_for = kwargs['hours'] * 3600
 
@@ -1067,18 +1044,11 @@ class Automations(hass.Hass):
 
             for command in commands:
                 response = self.command_matching_entities(**command)
+                self.log(f"Command: {command} returned: {response}", level='DEBUG')
 
             if final_commands:
                 for command in final_commands:
                     self.run_in(self.command_matching_entities, wait_for, **command)
-
-            # # Turn off master is running boolean
-            # response = self.command_matching_entities(
-            #     hacs_commands='turn_off',
-            #     domain='input_boolean',
-            #     pattern_overwrite=f'{app_name}_{master_name}_master_is_running$',
-            #     device_state='on'
-            # )
 
     def generate_patterns(self, single_pattern, single_area, single_domain):
         single_pattern = ".*" if single_pattern is None else single_pattern
@@ -1099,13 +1069,14 @@ class Automations(hass.Hass):
         duration = kwargs.get('duration', 30)  # seconds
         recording_key = kwargs.get('recording_key', 'default')
         regex_filter = kwargs.get('regex_filter', None)
+        sql = kwargs.get('sql', False)
 
         if self.should_debounce(recording_key):
             return
 
-        self.record_events(duration, recording_key, regex_filter)
+        self.record_events(duration, recording_key, regex_filter, sql)
 
-    def record_events(self, duration, recording_key, regex_filter=None):
+    def record_events(self, duration, recording_key, regex_filter=None, sql=False):
         self.log("Starting to record events.")
 
         # Initialize a list to hold recorded events
@@ -1126,6 +1097,7 @@ class Automations(hass.Hass):
             delay=duration,
             start_time=start_time,
             recording_key=recording_key,
+            sql=sql,
         )
 
     def capture_event(self, entity, attribute, old, new, **kwargs):
@@ -1142,7 +1114,7 @@ class Automations(hass.Hass):
         }
         for regex in regex_filter:
             if regex is not None:
-                self.log(f"Checking {entity} against {regex}")
+                self.log(f"Checking {entity} against {regex}", level='DEBUG')
                 if re.match(regex, entity):
                     self.recorded_events.append(event_details)
                     return
@@ -1152,6 +1124,7 @@ class Automations(hass.Hass):
     def stop_recording(self, **kwargs):
 
         recording_key = kwargs.get('recording_key', 'default')
+        sql = kwargs.get('sql', False)
 
         # Stop listening to state changes
         self.cancel_listen_state(self.event_listener)
@@ -1159,18 +1132,23 @@ class Automations(hass.Hass):
         # Log the recorded events or process them as needed
         self.log(f"Stopped recording events. Recorded {len(self.recorded_events)} events.")
 
-        # Optionally, return the recorded events if this method is used in a context
+        self.recorded_events = pd.DataFrame.from_records(self.recorded_events)
+
+        if self.recorded_events.empty:
+            self.log("No events recorded.")
+            return
+
+        # Convert the time column to a datetime object and adjust for the local timezone
+        self.recorded_events['time'] = pd.to_datetime(self.recorded_events['time'])
+        self.recorded_events['time'] = self.recorded_events['time'].dt.tz_localize('UTC').dt.tz_convert(self.timezone)
+
+        self.recorded_events['recording_key'] = recording_key
         # where the return value can be captured and utilized
         self.recordings[recording_key] = self.recorded_events
 
-        data = pd.DataFrame.from_records(self.recorded_events)
-        # Convert the time column to a datetime object and adjust for the local timezone
-        data['time'] = pd.to_datetime(data['time'])
-        data['time'] = data['time'].dt.tz_localize('UTC').dt.tz_convert('America/Chicago')
-
-        data['recording_key'] = recording_key
-        data.to_sql('activity_tracking', con=self.home_engine, if_exists='append', index=False)
-
+        if sql:
+            sql = 'activity_tracking' if isinstance(sql, bool) else sql
+            self.recorded_events.to_sql(sql, con=self.home_engine, if_exists='append', index=False)
         return self.recorded_events
 
 
